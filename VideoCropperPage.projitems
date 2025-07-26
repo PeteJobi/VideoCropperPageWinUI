@@ -10,7 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)CropperModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)CropperPage.xaml.cs">
+    <Compile Include="$(MSBuildThisFileDirectory)VideoCropperPage.xaml.cs">
       <DependentUpon>VideoCropperPage.xaml</DependentUpon>
     </Compile>
   </ItemGroup>

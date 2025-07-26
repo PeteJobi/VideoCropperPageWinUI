@@ -48,7 +48,7 @@ namespace VideoCropper
         private bool startedResizing;
         private (string XText, string YText, string X2Text, string Y2Text) previousRect;
 
-        public CropperPage()
+        public VideoCropperPage()
         {
             InitializeComponent();
             resizer = new DraggerResizer.DraggerResizer();
