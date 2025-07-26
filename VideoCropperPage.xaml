@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="VideoCropper.VideoCropperPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:VideoCropperPage"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:converters="using:CommunityToolkit.WinUI.Converters"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <converters:BoolToObjectConverter x:Key="PlayPauseGlyphConverter" TrueValue="&#xF8AE;" FalseValue="&#xF5B0;"/>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="400"/>
+        </Grid.ColumnDefinitions>
+        <RelativePanel>
+            <MediaPlayerElement Name="VideoPlayer" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True" RelativePanel.Above="VideoControls" SizeChanged="VideoPlayer_OnSizeChanged"/>
+            <Canvas Name="Canvas" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True" RelativePanel.Above="VideoControls">
+                <Path Fill="#77000000" Name="OverlayAndMask"/>
+                <RelativePanel Name="CropFrame" BorderBrush="White" BorderThickness="3" Background="Transparent">
+                    <Rectangle Width="40" Height="3" Fill="White" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignHorizontalCenterWithPanel="True"></Rectangle>
+                    <Rectangle Width="40" Height="3" Fill="White" RelativePanel.AlignBottomWithPanel="True" RelativePanel.AlignHorizontalCenterWithPanel="True"></Rectangle>
+                    <Rectangle Height="40" Width="3" Fill="White" RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignVerticalCenterWithPanel="True"></Rectangle>
+                    <Rectangle Height="40" Width="3" Fill="White" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignVerticalCenterWithPanel="True"></Rectangle>
+                    <Path Data="M0,0 L0,30 L3,30 L3,3 L30,3 L30,0 Z" Fill="White"></Path>
+                    <Path Data="M30,0 L30,30 L27,30 L27,3 L0,3 L0,0 Z" Fill="White" RelativePanel.AlignRightWithPanel="True"></Path>
+                    <Path Data="M0,30 L0,0 L3,0 L3,27 L30,27 L30,30 Z" Fill="White" RelativePanel.AlignBottomWithPanel="True"></Path>
+                    <Path Data="M30,30 L30,0 L27,0 L27,27 L0,27 L0,30 Z" Fill="White" RelativePanel.AlignBottomWithPanel="True" RelativePanel.AlignRightWithPanel="True"></Path>
+                </RelativePanel>
+            </Canvas>
+            <Grid Name="VideoControls" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignBottomWithPanel="True" Height="50">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Click="PlayPause" Margin="10,0,0,0">
+                    <FontIcon Glyph="{x:Bind viewModel.IsPlaying, Mode=OneWay, Converter={StaticResource PlayPauseGlyphConverter}}"/>
+                </Button>
+                <Slider Grid.Column="1" Name="VideoProgressSlider" VerticalAlignment="Center" Margin="10,0,10,0" ValueChanged="VideoProgressSlider_OnValueChanged"/>
+                <TextBlock Grid.Column="2" Name="VideoTime" VerticalAlignment="Center"/>
+            </Grid>
+        </RelativePanel>
+        <RelativePanel Grid.Column="1">
+            <ScrollView RelativePanel.AlignTopWithPanel="True" RelativePanel.Above="CropButton"
+                            RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True">
+                <StackPanel>
+                    <TextBlock Name="VideoName" Style="{StaticResource TitleTextBlockStyle}" Margin="10"/>
+                    <Button HorizontalAlignment="Center" Click="GoBack">
+                        <StackPanel Orientation="Horizontal">
+                            <FontIcon Glyph="&#xE72B;" Margin="0,0,10,0" />
+                            <TextBlock VerticalAlignment="Center">Go back</TextBlock>
+                        </StackPanel>
+                    </Button>
+                    <RelativePanel Height="150" Padding="10">
+                        <NumberBox Name="X" Header="X" Width="140" LostFocus="X_OnTextChanged" SpinButtonPlacementMode="Compact" LargeChange="20"/>
+                        <NumberBox Name="Y" Header="Y" Width="140" LostFocus="Y_OnTextChanged" RelativePanel.AlignRightWithPanel="True" SpinButtonPlacementMode="Compact" LargeChange="20"/>
+                        <NumberBox Name="X2" Header="Width" Width="140" LostFocus="X2_OnTextChanged" RelativePanel.AlignBottomWithPanel="True"
+                                   SpinButtonPlacementMode="Compact" LargeChange="20"/>
+                        <NumberBox Name="Y2" Header="Height" Width="140" LostFocus="Y2_OnTextChanged" RelativePanel.AlignRightWithPanel="True"
+                                 RelativePanel.AlignBottomWithPanel="True" SpinButtonPlacementMode="Compact" LargeChange="20"/>
+                    </RelativePanel>
+                    <ToggleButton Name="AspectRatioToggle" HorizontalAlignment="Center" Width="100"
+                                  Checked="ToggleButton_OnChecked" Unchecked="ToggleButton_OnChecked" CornerRadius="10"
+                                  Margin="0, 10">
+                        <StackPanel CornerRadius="10">
+                            <Viewbox MaxWidth="50" Margin="10">
+                                <FontIcon Name="AspectToggleIcon" />
+                            </Viewbox>
+                            <TextBlock Name="AspectToggleText" HorizontalTextAlignment="Center" TextWrapping="Wrap"
+                                       Style="{StaticResource CaptionTextBlockStyle}"/>
+                        </StackPanel>
+                    </ToggleButton>
+                    <GridView ItemsSource="{x:Bind ratios}">
+                        <GridView.ItemContainerStyle>
+                            <Style TargetType="GridViewItem" BasedOn="{StaticResource DefaultGridViewItemStyle}">
+                                <Setter Property="Margin" Value="5, 5, 5, 5" />
+                            </Style>
+                        </GridView.ItemContainerStyle>
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsWrapGrid MaximumRowsOrColumns="3" Orientation="Horizontal"
+                                               HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemTemplate>
+                            <DataTemplate x:DataType="local:AspectRatio">
+                                <Button Padding="10" Width="70" Height="100" CornerRadius="10" Click="SpecificRatio">
+                                    <StackPanel Spacing="10">
+                                        <Grid Height="40">
+                                            <Rectangle Width="{x:Bind Width}" Height="{x:Bind Height}" Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                                       StrokeThickness="2" RadiusX="3" RadiusY="3" />
+                                        </Grid>
+                                        <TextBlock HorizontalTextAlignment="Center"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Title}">
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </GridView.ItemTemplate>
+                    </GridView>
+                    <Button HorizontalAlignment="Center" Click="CenterFrame">
+                        <StackPanel Orientation="Horizontal">
+                            <SymbolIcon Symbol="AlignCenter" Margin="0,0,10,0" />
+                            <TextBlock VerticalAlignment="Center">Center Frame</TextBlock>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </ScrollView>
+            <Grid Name="CropButton" RelativePanel.AlignBottomWithPanel="True" Padding="10"
+                        RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignRightWithPanel="True">
+                <Button HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" Click="Crop"
+                        IsEnabled="{x:Bind viewModel.BeforeOperation, Mode=OneWay}"
+                        Visibility="{x:Bind viewModel.AfterOperation, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}">
+                    <Grid>
+                        <ProgressRing Maximum="1000000" Foreground="{StaticResource TextOnAccentFillColorPrimaryBrush}" Name="CropProgressValue"
+                                      Visibility="{x:Bind viewModel.DuringOperation, Mode=OneWay}" IsIndeterminate="False"/>
+                        <TextBlock Name="CropProgressText" VerticalAlignment="Center" HorizontalTextAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Visibility="{x:Bind viewModel.DuringOperation, Mode=OneWay}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" Visibility="{x:Bind viewModel.BeforeOperation, Mode=OneWay}">
+                            <Viewbox MaxWidth="30">
+                                <SymbolIcon Symbol="Crop" />
+                            </Viewbox>
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" HorizontalTextAlignment="Center">Crop!</TextBlock>
+                        </StackPanel>
+                    </Grid>
+                </Button>
+                <InfoBar Name="Info" Message="Operation successful" IsOpen="{x:Bind viewModel.AfterOperation, Mode=OneWay}" Severity="Success" CloseButtonClick="InfoBarClosed"></InfoBar>
+            </Grid>
+        </RelativePanel>
+    </Grid>
+</Page>
