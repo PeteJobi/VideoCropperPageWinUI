@@ -18,12 +18,13 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using VideoCropperPage;
 using Windows.ApplicationModel;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Media.Core;
 using Windows.Media.Playback;
-using static System.Collections.Specialized.BitVector32;
+using static VideoCropper.CropperModel;
 using Orientation = DraggerResizer.Orientation;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -38,22 +39,34 @@ namespace VideoCropper
     {
         private DraggerResizer.DraggerResizer resizer;
         private CropperModel viewModel;
+        private CropProcessor cropProcessor;
         private RectangleGeometry mask;
         private bool progressChangedByCode;
         private ObservableCollection<AspectRatio> ratios;
         private const double IconMaxSize = 40;
+        private readonly double progressMax = 1_000_000;
+        private string outputFile;
+        private readonly List<string> outputFiles = [];
+        private string? navigateTo;
         private string ffmpegPath, videoPath;
         private double videoWidth, videoHeight;
         private CancellationTokenSource resizeTokenSource;
         private bool startedResizing;
         private (string XText, string YText, string X2Text, string Y2Text) previousRect;
+        private HandlingCallbacks callbacks;
 
         public VideoCropperPage()
         {
             InitializeComponent();
             resizer = new DraggerResizer.DraggerResizer();
             viewModel = new CropperModel();
+            cropProcessor = new CropProcessor();
             ratios = new ObservableCollection<AspectRatio>();
+            callbacks = new HandlingCallbacks
+            {
+                Dragging = CoordinatesChanged,
+                Resizing = _ => { CoordinatesChanged(); }
+            };
             PopulateAspectRatios();
         }
 
@@ -62,8 +75,7 @@ namespace VideoCropper
             var props = (CropperProps)e.Parameter;
             ffmpegPath = props.FfmpegPath;
             videoPath = props.VideoPath;
-            //videoPath = Path.Join(Package.Current.InstalledLocation.Path, "Assets/Video.mp4");
-            //ffmpegPath = Path.Join(Package.Current.InstalledLocation.Path, "Assets/ffmpeg.exe");
+            navigateTo = props.TypeToNavigateTo;
             VideoName.Text = Path.GetFileName(videoPath);
             VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(videoPath));
             VideoPlayer.MediaPlayer.PlaybackSession.NaturalVideoSizeChanged += PlaybackSessionOnNaturalVideoSizeChanged;
@@ -78,28 +90,25 @@ namespace VideoCropper
             var orientations = Enum.GetValues<Orientation>().Append(Orientation.Horizontal | Orientation.Vertical)
                 .ToDictionary(o => o, o => new Appearance { HandleThickness = 30 });
             CropFrame.UpdateLayout();
-            resizer.InitDraggerResizer(CropFrame, orientations, parameters: new HandlingParameters { KeepAspectRatio = lockedAspectRatio },
-                dragged: CoordinatesChanged, resized: CoordinatesChanged, ended: UpdateUiWithCoordinates);
+            resizer.InitDraggerResizer(CropFrame, orientations, parameters: new HandlingParameters { KeepAspectRatio = lockedAspectRatio }, callbacks);
             CropFrame.UpdateLayout();
-            UpdateUiWithCoordinates();
+            UpdateUiWithCoordinates(0, 0);
         }
 
-        private void UpdateUiWithCoordinates()
+        private void UpdateUiWithCoordinates(double fakeLeft, double fakeTop)
         {
-            var fakeLeft = resizer.GetElementLeft(CropFrame);
-            var fakeTop = resizer.GetElementTop(CropFrame);
             var fakeX2 = CropFrame.Width;
             var fakeY2 = CropFrame.Height;
             var fakeWidth = OverlayAndMask.Width;
             var fakeHeight = OverlayAndMask.Height;
             X.Text = (fakeLeft / fakeWidth * videoWidth).ToString("F0");
             Y.Text = (fakeTop / fakeHeight * videoHeight).ToString("F0");
-            X2.Text = (fakeX2 / fakeWidth * videoWidth).ToString("F0");
-            Y2.Text = (fakeY2 / fakeHeight * videoHeight).ToString("F0");
+            XDelta.Text = (fakeX2 / fakeWidth * videoWidth).ToString("F0");
+            YDelta.Text = (fakeY2 / fakeHeight * videoHeight).ToString("F0");
             previousRect.XText = X.Text;
             previousRect.YText = Y.Text;
-            previousRect.X2Text = X2.Text;
-            previousRect.Y2Text = Y2.Text;
+            previousRect.X2Text = XDelta.Text;
+            previousRect.Y2Text = YDelta.Text;
         }
 
         private void PopulateAspectRatios()
@@ -119,17 +128,16 @@ namespace VideoCropper
 
         AspectRatio GetAspectRatio(double aspectWidth, double aspectHeight)
         {
-            var withinSize = 40;
             double width, height;
             if (aspectWidth > aspectHeight)
             {
-                width = withinSize;
-                height = withinSize * aspectHeight / aspectWidth;
+                width = IconMaxSize;
+                height = IconMaxSize * aspectHeight / aspectWidth;
             }
             else
             {
-                height = withinSize;
-                width = withinSize * aspectWidth / aspectHeight;
+                height = IconMaxSize;
+                width = IconMaxSize * aspectWidth / aspectHeight;
             }
 
             return new AspectRatio { Title = $"{aspectWidth}:{aspectHeight}", Width = width, Height = height };
@@ -156,13 +164,13 @@ namespace VideoCropper
             double width, height;
             if (aspectRatio > videoSize.X / videoSize.Y)
             {
-                width = videoSize.X;
-                height = videoSize.X / aspectRatio;
+                width = Math.Ceiling(videoSize.X);
+                height = Math.Ceiling(videoSize.X / aspectRatio);
             }
             else
             {
-                width = videoSize.Y * aspectRatio;
-                height = videoSize.Y;
+                width = Math.Ceiling(videoSize.Y * aspectRatio);
+                height = Math.Ceiling(videoSize.Y);
             }
             Canvas.Width = CropFrame.Width = OverlayAndMask.Width = width;
             Canvas.Height = CropFrame.Height = OverlayAndMask.Height = height;
@@ -198,7 +206,10 @@ namespace VideoCropper
 
         private void CoordinatesChanged()
         {
-            mask.Rect = new Rect(resizer.GetElementLeft(CropFrame), resizer.GetElementTop(CropFrame), CropFrame.Width, CropFrame.Height);
+            var left = resizer.GetElementLeft(CropFrame);
+            var top = resizer.GetElementTop(CropFrame);
+            mask.Rect = new Rect(left, top, CropFrame.Width, CropFrame.Height);
+            UpdateUiWithCoordinates(left, top);
         }
 
         private void PlayPause(object sender, RoutedEventArgs e)
@@ -254,14 +265,12 @@ namespace VideoCropper
             var ratio = (AspectRatio)((Button)sender).DataContext;
             resizer.SetAspectRatio(CropFrame, ratio.Width / ratio.Height);
             CoordinatesChanged();
-            UpdateUiWithCoordinates();
         }
 
         private void CenterFrame(object sender, RoutedEventArgs e)
         {
             resizer.PositionElementAtCenter(CropFrame);
             CoordinatesChanged();
-            UpdateUiWithCoordinates();
         }
 
         private async void VideoPlayer_OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -296,16 +305,14 @@ namespace VideoCropper
             if(previousRect.XText == X.Text) return;
             resizer.PositionElementLeft(CropFrame, double.Parse(X.Text) / videoWidth * OverlayAndMask.Width);
             CoordinatesChanged();
-            UpdateUiWithCoordinates();
         }
 
-        private void X2_OnTextChanged(object sender, RoutedEventArgs e)
+        private void XDelta_OnTextChanged(object sender, RoutedEventArgs e)
         {
-            if(previousRect.X2Text == X2.Text) return;
-            resizer.ResizeElementWidth(CropFrame, double.Parse(X2.Text) / videoWidth * OverlayAndMask.Width,
+            if(previousRect.X2Text == XDelta.Text) return;
+            resizer.ResizeElementWidth(CropFrame, double.Parse(XDelta.Text) / videoWidth * OverlayAndMask.Width,
                 parameters: new HandlingParameters{ KeepAspectRatio = AspectRatioToggle.IsChecked == true });
             CoordinatesChanged();
-            UpdateUiWithCoordinates();
         }
 
         private void Y_OnTextChanged(object sender, RoutedEventArgs e)
@@ -313,24 +320,14 @@ namespace VideoCropper
             if(previousRect.YText == Y.Text) return;
             resizer.PositionElementTop(CropFrame, double.Parse(Y.Text) / videoHeight * OverlayAndMask.Height);
             CoordinatesChanged();
-            UpdateUiWithCoordinates();
         }
 
-        private void Y2_OnTextChanged(object sender, RoutedEventArgs e)
+        private void YDelta_OnTextChanged(object sender, RoutedEventArgs e)
         {
-            if(previousRect.Y2Text == Y2.Text) return;
-            resizer.ResizeElementHeight(CropFrame, double.Parse(Y2.Text) / videoHeight * OverlayAndMask.Height,
+            if(previousRect.Y2Text == YDelta.Text) return;
+            resizer.ResizeElementHeight(CropFrame, double.Parse(YDelta.Text) / videoHeight * OverlayAndMask.Height,
                 parameters: new HandlingParameters { KeepAspectRatio = AspectRatioToggle.IsChecked == true });
             CoordinatesChanged();
-            UpdateUiWithCoordinates();
-        }
-
-        string GetOutputName(string path)
-        {
-            string inputName = Path.GetFileNameWithoutExtension(path);
-            string extension = Path.GetExtension(path);
-            string parentFolder = Path.GetDirectoryName(path) ?? throw new FileNotFoundException($"The specified path does not exist: {path}");
-            return Path.Combine(parentFolder, $"{inputName}_CROPPED{extension}");
         }
 
         private void InfoBarClosed(InfoBar sender, object args)
@@ -340,79 +337,103 @@ namespace VideoCropper
 
         private async void Crop(object sender, RoutedEventArgs e)
         {
-            var outputFile = GetOutputName(videoPath);
-            File.Delete(outputFile);
             CropProgressText.Text = "0.0";
             CropProgressValue.Value = 0;
-            viewModel.State = CropperModel.OperationState.DuringOperation;
+            viewModel.State = OperationState.DuringOperation;
+            var valueProgress = new Progress<ValueProgress>(progress =>
+            {
+                CropProgressValue.Value = progress.ActionProgress;
+                CropProgressText.Text = progress.ActionProgressText;
+            });
+            var failed = false;
+            string? errorMessage = null;
             try
             {
-                await StartProcess(ffmpegPath,
-                    $"-i \"{videoPath}\" -vf \"crop={X2.Text}:{Y2.Text}:{X.Text}:{Y.Text}\" \"{outputFile}\"", null,
-                    (o, args) =>
-                    {
-                        if (string.IsNullOrWhiteSpace(args.Data) /*|| hasBeenKilled*/) return;
-                        Debug.WriteLine(args.Data);
-                        if (args.Data.StartsWith("frame"))
-                        {
-                            //if (CheckNoSpaceDuringOperation(args.Data)) return;
-                            MatchCollection matchCollection = Regex.Matches(args.Data,
-                                @"^frame=\s*\d+\s.+?time=(\d{2}:\d{2}:\d{2}\.\d{2}).+");
-                            if (matchCollection.Count == 0) return;
-                            IncrementProgress(TimeSpan.Parse(matchCollection[0].Groups[1].Value));
-                        }
-                    });
-                Info.Severity = InfoBarSeverity.Success;
-                Info.Message = "Crop completed successfully!";
+                await cropProcessor.Crop(videoPath, ffmpegPath, X.Text, Y.Text, XDelta.Text, YDelta.Text, progressMax,
+                    valueProgress, SetOutputFile, ErrorActionFromFfmpeg);
+
+                if (viewModel.State == OperationState.BeforeOperation) return; //Canceled
+                if (failed)
+                {
+                    viewModel.State = OperationState.BeforeOperation;
+                    await ErrorAction(errorMessage!);
+                    await cropProcessor.Cancel(outputFile);
+                    return;
+                }
+
+                viewModel.State = OperationState.AfterOperation;
+                outputFiles.Add(outputFile);
             }
             catch (Exception ex)
             {
-                Info.Severity = InfoBarSeverity.Error;
-                Info.Message = $"Crop failed: {ex.Message}";
+                await ErrorAction(ex.Message);
+                viewModel.State = OperationState.BeforeOperation;
             }
-            finally
+
+            void ErrorActionFromFfmpeg(string message)
             {
-                viewModel.State = CropperModel.OperationState.AfterOperation;
+                failed = true;
+                errorMessage = message;
+            }
+
+            void SetOutputFile(string folder)
+            {
+                outputFile = folder;
+            }
+
+            async Task ErrorAction(string message)
+            {
+                ErrorDialog.Title = "Crop operation failed";
+                ErrorDialog.Content = message;
+                await ErrorDialog.ShowAsync();
             }
         }
 
-        private void IncrementProgress(TimeSpan currentTime)
+        private void PauseOrViewSplit_OnClick(object sender, RoutedEventArgs e)
         {
-            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () =>
+            if (viewModel.State == OperationState.AfterOperation)
             {
-                var fraction = currentTime / VideoPlayer.MediaPlayer.PlaybackSession.NaturalDuration;
-                CropProgressValue.Value = fraction * CropProgressValue.Maximum;
-                CropProgressText.Text = Math.Round(fraction * 100, 1).ToString("F1");
-            });
+                cropProcessor.ViewFiles(outputFile);
+                return;
+            }
+
+            if (viewModel.ProcessPaused)
+            {
+                cropProcessor.Resume();
+                viewModel.ProcessPaused = false;
+            }
+            else
+            {
+                cropProcessor.Pause();
+                viewModel.ProcessPaused = true;
+            }
         }
 
-        private static async Task StartProcess(string processFileName, string arguments, DataReceivedEventHandler? outputEventHandler, DataReceivedEventHandler? errorEventHandler)
+        private void CancelOrCloseSplit_OnClick(object sender, RoutedEventArgs e)
         {
-            Process ffmpeg = new()
+            if (viewModel.State == OperationState.AfterOperation)
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = processFileName,
-                    Arguments = arguments,
-                    CreateNoWindow = true,
-                    RedirectStandardError = true,
-                    RedirectStandardOutput = true,
-                },
-                EnableRaisingEvents = true
-            };
-            ffmpeg.OutputDataReceived += outputEventHandler;
-            ffmpeg.ErrorDataReceived += errorEventHandler;
-            ffmpeg.Start();
-            ffmpeg.BeginErrorReadLine();
-            ffmpeg.BeginOutputReadLine();
-            await ffmpeg.WaitForExitAsync();
-            ffmpeg.Dispose();
+                viewModel.State = OperationState.BeforeOperation;
+                return;
+            }
+
+            FlyoutBase.ShowAttachedFlyout((FrameworkElement)sender);
+        }
+
+        private async void CancelProcess(object sender, RoutedEventArgs e)
+        {
+            await cropProcessor.Cancel(outputFile);
+            viewModel.State = OperationState.BeforeOperation;
+            viewModel.ProcessPaused = false;
+            CancelFlyout.Hide();
         }
 
         private void GoBack(object sender, RoutedEventArgs e)
         {
             VideoPlayer.MediaPlayer.Pause();
-            Frame.GoBack();
+            _ = cropProcessor.Cancel(outputFile);
+            if (navigateTo == null) Frame.GoBack();
+            else Frame.NavigateToType(Type.GetType(navigateTo), outputFiles, new FrameNavigationOptions { IsNavigationStackEnabled = false });
         }
     }
 
@@ -426,5 +447,6 @@ namespace VideoCropper
     public class CropperProps{
         public string FfmpegPath { get; set; }
         public string VideoPath { get; set; }
+        public string? TypeToNavigateTo { get; set; }
     }
 }

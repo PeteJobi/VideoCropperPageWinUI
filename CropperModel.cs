@@ -36,6 +36,17 @@ namespace VideoCropper
             }
         }
 
+        private bool _processpaused;
+        public bool ProcessPaused
+        {
+            get => _processpaused;
+            set
+            {
+                _processpaused = value;
+                OnPropertyChanged();
+            }
+        }
+
         public bool BeforeOperation => State == OperationState.BeforeOperation;
         public bool DuringOperation => State == OperationState.DuringOperation;
         public bool AfterOperation => State == OperationState.AfterOperation;
