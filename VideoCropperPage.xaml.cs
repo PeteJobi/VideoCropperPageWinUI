@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
@@ -38,21 +39,20 @@ namespace VideoCropper
     public sealed partial class VideoCropperPage : Page
     {
         private DraggerResizer.DraggerResizer resizer;
-        private CropperModel viewModel;
-        private CropProcessor cropProcessor;
+        private readonly CropperModel viewModel;
+        private readonly CropProcessor cropProcessor;
         private RectangleGeometry mask;
         private bool progressChangedByCode;
-        private ObservableCollection<AspectRatio> ratios;
+        private readonly ObservableCollection<AspectRatio> ratios = [];
         private const double IconMaxSize = 40;
         private readonly double progressMax = 1_000_000;
         private string? outputFile;
         private string? navigateTo;
         private string ffmpegPath, videoPath;
-        private double videoWidth, videoHeight;
         private CancellationTokenSource resizeTokenSource;
-        private bool startedResizing;
+        private bool cropFrameInitialized;
+        private bool zoomIntoFrame;
         private (string XText, string YText, string X2Text, string Y2Text) previousRect;
-        private HandlingCallbacks callbacks;
 
         public VideoCropperPage()
         {
@@ -60,12 +60,6 @@ namespace VideoCropper
             resizer = new DraggerResizer.DraggerResizer();
             viewModel = new CropperModel();
             cropProcessor = new CropProcessor();
-            ratios = new ObservableCollection<AspectRatio>();
-            callbacks = new HandlingCallbacks
-            {
-                AfterDragging = CoordinatesChanged,
-                AfterResizing = (newRect, _) => CoordinatesChanged(newRect)
-            };
             PopulateAspectRatios();
         }
 
@@ -77,31 +71,17 @@ namespace VideoCropper
             navigateTo = props.TypeToNavigateTo;
             VideoName.Text = Path.GetFileName(videoPath);
             VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(videoPath));
-            VideoPlayer.MediaPlayer.PlaybackSession.NaturalVideoSizeChanged += PlaybackSessionOnNaturalVideoSizeChanged;
             VideoPlayer.MediaPlayer.PlaybackSession.NaturalDurationChanged += PlaybackSessionOnNaturalDurationChanged;
             VideoPlayer.MediaPlayer.PlaybackSession.PlaybackStateChanged += PlaybackSession_PlaybackStateChanged;
             base.OnNavigatedTo(e);
         }
 
-        private void CreateCropper(bool lockedAspectRatio)
-        {
-            resizer.DeInitDraggerResizer(CropFrame);
-            var orientations = Enum.GetValues<Orientation>().Append(Orientation.Horizontal | Orientation.Vertical)
-                .ToDictionary(o => o, o => new Appearance { HandleThickness = 30 });
-            CropFrame.UpdateLayout();
-            resizer.InitDraggerResizer(CropFrame, orientations, parameters: new HandlingParameters { KeepAspectRatio = lockedAspectRatio }, callbacks);
-            CropFrame.UpdateLayout();
-            UpdateUiWithCoordinates(new Rect(0, 0, CropFrame.Width, CropFrame.Height));
-        }
-
         private void UpdateUiWithCoordinates(Rect newRect)
         {
-            var fakeWidth = OverlayAndMask.Width;
-            var fakeHeight = OverlayAndMask.Height;
-            X.Text = (newRect.X / fakeWidth * videoWidth).ToString("F0");
-            Y.Text = (newRect.Y / fakeHeight * videoHeight).ToString("F0");
-            XDelta.Text = (newRect.Width / fakeWidth * videoWidth).ToString("F0");
-            YDelta.Text = (newRect.Height / fakeHeight * videoHeight).ToString("F0");
+            X.Text = newRect.X.ToString("F0");
+            Y.Text = newRect.Y.ToString("F0");
+            XDelta.Text = newRect.Width.ToString("F0");
+            YDelta.Text = newRect.Height.ToString("F0");
             previousRect.XText = X.Text;
             previousRect.YText = Y.Text;
             previousRect.X2Text = XDelta.Text;
@@ -123,7 +103,7 @@ namespace VideoCropper
             ratios.Add(GetAspectRatio(1, 2));
         }
 
-        AspectRatio GetAspectRatio(double aspectWidth, double aspectHeight)
+        private static AspectRatio GetAspectRatio(double aspectWidth, double aspectHeight)
         {
             double width, height;
             if (aspectWidth > aspectHeight)
@@ -138,51 +118,6 @@ namespace VideoCropper
             }
 
             return new AspectRatio { Title = $"{aspectWidth}:{aspectHeight}", Width = width, Height = height };
-        }
-
-        private void PlaybackSessionOnNaturalVideoSizeChanged(MediaPlaybackSession sender, object args)
-        {
-            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () =>
-            {
-                videoWidth = sender.NaturalVideoWidth;
-                videoHeight = sender.NaturalVideoHeight;
-                CreateCropperSizeChange();
-
-                var originalAspectRatio = GetAspectRatio(videoWidth, videoHeight);
-                originalAspectRatio.Title = "Original";
-                ratios.Insert(0, originalAspectRatio);
-            });
-        }
-
-        private void CreateCropperSizeChange()
-        {
-            var videoSize = VideoPlayer.ActualSize;
-            var aspectRatio = videoWidth / videoHeight;
-            double width, height;
-            if (aspectRatio > videoSize.X / videoSize.Y)
-            {
-                width = Math.Ceiling(videoSize.X);
-                height = Math.Ceiling(videoSize.X / aspectRatio);
-            }
-            else
-            {
-                width = Math.Ceiling(videoSize.Y * aspectRatio);
-                height = Math.Ceiling(videoSize.Y);
-            }
-            Canvas.Width = CropFrame.Width = OverlayAndMask.Width = width;
-            Canvas.Height = CropFrame.Height = OverlayAndMask.Height = height;
-            var geometryGroup = new GeometryGroup { FillRule = FillRule.EvenOdd };
-            mask = new RectangleGeometry
-            {
-                Rect = new Rect(0, 0, width, height)
-            };
-            geometryGroup.Children.Add(new RectangleGeometry
-            {
-                Rect = new Rect(0, 0, width, height)
-            });
-            geometryGroup.Children.Add(mask);
-            OverlayAndMask.Data = geometryGroup;
-            ToggleButton_OnChecked(AspectRatioToggle, null);
         }
 
         private void PlaybackSessionOnNaturalDurationChanged(MediaPlaybackSession sender, object args)
@@ -243,7 +178,7 @@ namespace VideoCropper
             }
         }
 
-        private void SetVideoTime() => VideoTime.Text = $"{VideoPlayer.MediaPlayer.PlaybackSession.Position:hh\\:mm\\:ss} / {VideoPlayer.MediaPlayer.PlaybackSession.NaturalDuration:hh\\:mm\\:ss}";
+        private void SetVideoTime() => VideoTime.Text = $@"{VideoPlayer.MediaPlayer.PlaybackSession.Position:hh\:mm\:ss} / {VideoPlayer.MediaPlayer.PlaybackSession.NaturalDuration:hh\:mm\:ss}";
 
         private void VideoProgressSlider_OnValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
@@ -255,7 +190,7 @@ namespace VideoCropper
         private void ToggleButton_OnChecked(object sender, RoutedEventArgs e)
         {
             var toggle = (ToggleButton)sender;
-            CreateCropper(toggle.IsChecked == true);
+            resizer.SetNewHandlingParameters(CropFrame, GetAspectRatioParam(toggle.IsChecked ?? false));
             AspectToggleIcon.Glyph = toggle.IsChecked == true ? "\uF407" : "\uE799";
             AspectToggleText.Text = toggle.IsChecked == true ? "Locked Aspect Ratio" : "Unlocked Aspect Ratio";
         }
@@ -265,69 +200,180 @@ namespace VideoCropper
             var ratio = (AspectRatio)((Button)sender).DataContext;
             resizer.SetAspectRatio(CropFrame, ratio.Width / ratio.Height);
             CoordinatesChanged();
+            FocusCropFrame();
         }
 
         private void CenterFrame(object sender, RoutedEventArgs e)
         {
             resizer.PositionElementAtCenter(CropFrame);
             CoordinatesChanged();
+            FocusCropFrame();
         }
 
-        private async void VideoPlayer_OnSizeChanged(object sender, SizeChangedEventArgs e)
+        private void VideoPlayer_OnSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            if(videoWidth == 0 || videoHeight == 0)
+            Canvas.Width = CropFrame.Width = OverlayAndMask.Width = e.NewSize.Width;
+            Canvas.Height = CropFrame.Height = OverlayAndMask.Height = e.NewSize.Height;
+            var geometryGroup = new GeometryGroup { FillRule = FillRule.EvenOdd };
+            mask = new RectangleGeometry
             {
-                resizeTokenSource = new CancellationTokenSource();
-                return;
-            }
+                Rect = new Rect(0, 0, e.NewSize.Width, e.NewSize.Height)
+            };
+            geometryGroup.Children.Add(new RectangleGeometry
+            {
+                Rect = new Rect(0, 0, e.NewSize.Width, e.NewSize.Height)
+            });
+            geometryGroup.Children.Add(mask);
+            OverlayAndMask.Data = geometryGroup;
+            resizer.DeInitDraggerResizer(CropFrame);
+            var orientations = Enum.GetValues<Orientation>().Append(Orientation.Horizontal | Orientation.Vertical)
+                .ToDictionary(o => o, o => new Appearance { HandleThickness = 30 });
+            CropFrame.UpdateLayout();
+            resizer.InitDraggerResizer(CropFrame, orientations, callbacks: new HandlingCallbacks
+            {
+                BeforeDragging = point => new Point(point.X / ZoomTransform.ScaleX, point.Y / ZoomTransform.ScaleY),
+                AfterDragging = CoordinatesChanged,
+                DragCompleted = FocusCropFrame,
+                BeforeResizing = (point, _) => new Point(point.X / ZoomTransform.ScaleX, point.Y / ZoomTransform.ScaleY),
+                AfterResizing = (newRect, _) => CoordinatesChanged(newRect),
+                ResizeCompleted = _ => FocusCropFrame()
+            });
+            CropFrame.UpdateLayout();
+            ToggleButton_OnChecked(AspectRatioToggle, null);
+            UpdateUiWithCoordinates(new Rect(0, 0, CropFrame.Width, CropFrame.Height));
+            cropFrameInitialized = true;
 
-            if (!startedResizing)
+            var originalAspectRatio = GetAspectRatio(e.NewSize.Width, e.NewSize.Height);
+            originalAspectRatio.Title = "Original";
+            ratios.Insert(0, originalAspectRatio);
+
+            FitToView();
+        }
+
+        private void FocusCropFrame()
+        {
+            if (!zoomIntoFrame) return;
+            const int margin = 200;
+            var left = resizer.GetElementLeft(CropFrame);
+            var top = resizer.GetElementTop(CropFrame);
+            double panX, panY, zoom;
+            if (CanvasContainer.ActualWidth / CanvasContainer.ActualHeight < CropFrame.Width / CropFrame.Height)
             {
-                CropFrame.Visibility = OverlayAndMask.Visibility = Visibility.Collapsed;
-                resizer.PositionElement(CropFrame, 0, 0);
-                startedResizing = true;
+                zoom = CanvasContainer.ActualWidth / (CropFrame.Width + margin * 2);
+                panX = -(left - margin) * zoom;
+                panY = -(top * zoom - (CanvasContainer.ActualHeight - CropFrame.Height * zoom) / 2);
             }
-            await resizeTokenSource.CancelAsync();
-            resizeTokenSource = new CancellationTokenSource();
-            try
+            else
             {
-                await Task.Delay(500, resizeTokenSource.Token);
-                CropFrame.Visibility = OverlayAndMask.Visibility = Visibility.Visible;
-                startedResizing = false;
-                CreateCropperSizeChange();
+                zoom = CanvasContainer.ActualHeight / (CropFrame.Height + margin * 2);
+                panY = -(top - margin) * zoom;
+                panX = -(left * zoom - (CanvasContainer.ActualWidth - CropFrame.Width * zoom) / 2);
             }
-            catch (AggregateException) { }
-            catch (TaskCanceledException) { }
+            AnimateTransform(panX, panY, zoom);
+        }
+
+        private void FitToView()
+        {
+            double panX, panY, zoom;
+            if (CanvasContainer.ActualWidth / CanvasContainer.ActualHeight < Canvas.Width / Canvas.Height)
+            {
+                zoom = CanvasContainer.ActualWidth / Canvas.Width; // Fit to width
+                var scaledHeight = CanvasContainer.ActualWidth * Canvas.Height / Canvas.Width;
+                panY = (CanvasContainer.ActualHeight - scaledHeight) / 2; // Center vertically
+                panX = 0;
+            }
+            else
+            {
+                zoom = CanvasContainer.ActualHeight / Canvas.Height; // Fit to height
+                var scaledWidth = CanvasContainer.ActualHeight * Canvas.Width / Canvas.Height;
+                panX = (CanvasContainer.ActualWidth - scaledWidth) / 2; // Center horizontally
+                panY = 0;
+            }
+            AnimateTransform(panX, panY, zoom);
+        }
+
+        private static HandlingParameters GetAspectRatioParam(bool lockedAspectRatio) => new() { KeepAspectRatio = lockedAspectRatio };
+
+        private void AnimateTransform(double panX, double panY, double zoom)
+        {
+            var storyboard = new Storyboard(); //Animates PanTransform.X/Y and ZoomTransform.ScaleX/Y
+            const double animDuration = 500;
+
+            var animPanX = new DoubleAnimation
+            {
+                To = panX,
+                Duration = new Duration(TimeSpan.FromMilliseconds(animDuration)),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(animPanX, PanTransform);
+            Storyboard.SetTargetProperty(animPanX, "X");
+            storyboard.Children.Add(animPanX);
+
+            var animPanY = new DoubleAnimation
+            {
+                To = panY,
+                Duration = new Duration(TimeSpan.FromMilliseconds(animDuration)),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(animPanY, PanTransform);
+            Storyboard.SetTargetProperty(animPanY, "Y");
+            storyboard.Children.Add(animPanY);
+
+            var animZoomX = new DoubleAnimation
+            {
+                To = zoom,
+                Duration = new Duration(TimeSpan.FromMilliseconds(animDuration)),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(animZoomX, ZoomTransform);
+            Storyboard.SetTargetProperty(animZoomX, "ScaleX");
+            storyboard.Children.Add(animZoomX);
+
+            var animZoomY = new DoubleAnimation
+            {
+                To = zoom,
+                Duration = new Duration(TimeSpan.FromMilliseconds(animDuration)),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(animZoomY, ZoomTransform);
+            Storyboard.SetTargetProperty(animZoomY, "ScaleY");
+            storyboard.Children.Add(animZoomY);
+
+            storyboard.Begin();
         }
 
         private void X_OnTextChanged(object sender, RoutedEventArgs e)
         {
             if(previousRect.XText == X.Text) return;
-            resizer.PositionElementLeft(CropFrame, double.Parse(X.Text) / videoWidth * OverlayAndMask.Width);
+            resizer.PositionElementLeft(CropFrame, double.Parse(X.Text) / Canvas.Width * OverlayAndMask.Width);
             CoordinatesChanged();
+            FocusCropFrame();
         }
 
         private void XDelta_OnTextChanged(object sender, RoutedEventArgs e)
         {
             if(previousRect.X2Text == XDelta.Text) return;
-            resizer.ResizeElementWidth(CropFrame, double.Parse(XDelta.Text) / videoWidth * OverlayAndMask.Width,
+            resizer.ResizeElementWidth(CropFrame, double.Parse(XDelta.Text) / Canvas.Width * OverlayAndMask.Width,
                 parameters: new HandlingParameters{ KeepAspectRatio = AspectRatioToggle.IsChecked == true });
             CoordinatesChanged();
+            FocusCropFrame();
         }
 
         private void Y_OnTextChanged(object sender, RoutedEventArgs e)
         {
             if(previousRect.YText == Y.Text) return;
-            resizer.PositionElementTop(CropFrame, double.Parse(Y.Text) / videoHeight * OverlayAndMask.Height);
+            resizer.PositionElementTop(CropFrame, double.Parse(Y.Text) / Canvas.Height * OverlayAndMask.Height);
             CoordinatesChanged();
+            FocusCropFrame();
         }
 
         private void YDelta_OnTextChanged(object sender, RoutedEventArgs e)
         {
             if(previousRect.Y2Text == YDelta.Text) return;
-            resizer.ResizeElementHeight(CropFrame, double.Parse(YDelta.Text) / videoHeight * OverlayAndMask.Height,
+            resizer.ResizeElementHeight(CropFrame, double.Parse(YDelta.Text) / Canvas.Height * OverlayAndMask.Height,
                 parameters: new HandlingParameters { KeepAspectRatio = AspectRatioToggle.IsChecked == true });
             CoordinatesChanged();
+            FocusCropFrame();
         }
 
         private async void Crop(object sender, RoutedEventArgs e)
@@ -429,6 +475,32 @@ namespace VideoCropper
             _ = cropProcessor.Cancel(outputFile);
             if (navigateTo == null) Frame.GoBack();
             else Frame.NavigateToType(Type.GetType(navigateTo), outputFile, new FrameNavigationOptions { IsNavigationStackEnabled = false });
+        }
+
+        private void CanvasContainer_OnSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            CanvasContainer.Clip = new RectangleGeometry
+            {
+                Rect = new Rect(0, 0, CanvasContainer.ActualWidth, CanvasContainer.ActualHeight)
+            };
+            if (!cropFrameInitialized) return;
+            if(zoomIntoFrame) FocusCropFrame();
+            else FitToView();
+        }
+
+        private void ZoomFrameToggleButton_OnChecked(object sender, RoutedEventArgs e)
+        {
+            var checkbox = (CheckBox)sender;
+            if (checkbox.IsChecked == true)
+            {
+                zoomIntoFrame = true;
+                FocusCropFrame();
+            }
+            else
+            {
+                zoomIntoFrame = false;
+                FitToView();
+            }
         }
     }
 

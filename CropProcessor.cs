@@ -24,7 +24,7 @@ namespace VideoCropperPage
             await StartProcess(ffmpegPath, $"-i \"{fileName}\" -vf \"crop={width}:{height}:{x}:{y}\" \"{outputFile}\"", null, (o, args) =>
             {
                 if (string.IsNullOrWhiteSpace(args.Data) || hasBeenKilled) return;
-                Debug.WriteLine(args.Data);
+                //Debug.WriteLine(args.Data);
                 if (CheckFileNameLongError(args.Data, error)) return;
                 if (duration == TimeSpan.MinValue)
                 {
@@ -89,7 +89,7 @@ namespace VideoCropperPage
 
         public void ViewFiles(string file)
         {
-            ProcessStartInfo info = new ProcessStartInfo();
+            var info = new ProcessStartInfo();
             info.FileName = "explorer";
             info.Arguments = $"/e, /select, \"{file}\"";
             Process.Start(info);
@@ -132,19 +132,7 @@ namespace VideoCropperPage
         public void Pause()
         {
             if (currentProcess == null) return;
-            foreach (ProcessThread pT in currentProcess.Threads)
-            {
-                var pOpenThread = OpenThread(ThreadAccess.SUSPEND_RESUME, false, (uint)pT.Id);
-
-                if (pOpenThread == IntPtr.Zero)
-                {
-                    continue;
-                }
-
-                SuspendThread(pOpenThread);
-
-                CloseHandle(pOpenThread);
-            }
+            SuspendProcess(currentProcess);
         }
 
         public void Resume()

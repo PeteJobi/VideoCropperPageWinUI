@@ -24,20 +24,29 @@
             <ColumnDefinition Width="400"/>
         </Grid.ColumnDefinitions>
         <RelativePanel>
-            <MediaPlayerElement Name="VideoPlayer" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True" RelativePanel.Above="VideoControls" SizeChanged="VideoPlayer_OnSizeChanged"/>
-            <Canvas Name="Canvas" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True" RelativePanel.Above="VideoControls">
-                <Path Fill="#77000000" Name="OverlayAndMask"/>
-                <RelativePanel Name="CropFrame" BorderBrush="White" BorderThickness="3" Background="Transparent">
-                    <Rectangle Width="40" Height="3" Fill="White" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignHorizontalCenterWithPanel="True"></Rectangle>
-                    <Rectangle Width="40" Height="3" Fill="White" RelativePanel.AlignBottomWithPanel="True" RelativePanel.AlignHorizontalCenterWithPanel="True"></Rectangle>
-                    <Rectangle Height="40" Width="3" Fill="White" RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignVerticalCenterWithPanel="True"></Rectangle>
-                    <Rectangle Height="40" Width="3" Fill="White" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignVerticalCenterWithPanel="True"></Rectangle>
-                    <Path Data="M0,0 L0,30 L3,30 L3,3 L30,3 L30,0 Z" Fill="White"></Path>
-                    <Path Data="M30,0 L30,30 L27,30 L27,3 L0,3 L0,0 Z" Fill="White" RelativePanel.AlignRightWithPanel="True"></Path>
-                    <Path Data="M0,30 L0,0 L3,0 L3,27 L30,27 L30,30 Z" Fill="White" RelativePanel.AlignBottomWithPanel="True"></Path>
-                    <Path Data="M30,30 L30,0 L27,0 L27,27 L0,27 L0,30 Z" Fill="White" RelativePanel.AlignBottomWithPanel="True" RelativePanel.AlignRightWithPanel="True"></Path>
-                </RelativePanel>
-            </Canvas>
+            <Grid Name="CanvasContainer" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True"
+                  RelativePanel.Above="VideoControls" SizeChanged="CanvasContainer_OnSizeChanged">
+                <Canvas Name="Canvas" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="ZoomTransform" ScaleX="1" ScaleY="1"/>
+                            <TranslateTransform x:Name="PanTransform" X="0" Y="0"/>
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+                    <MediaPlayerElement Name="VideoPlayer" SizeChanged="VideoPlayer_OnSizeChanged"/>
+                    <Path Fill="#77000000" Name="OverlayAndMask"/>
+                    <RelativePanel Name="CropFrame" BorderBrush="White" BorderThickness="3" Background="Transparent">
+                        <Rectangle Width="40" Height="3" Fill="White" RelativePanel.AlignTopWithPanel="True" RelativePanel.AlignHorizontalCenterWithPanel="True"></Rectangle>
+                        <Rectangle Width="40" Height="3" Fill="White" RelativePanel.AlignBottomWithPanel="True" RelativePanel.AlignHorizontalCenterWithPanel="True"></Rectangle>
+                        <Rectangle Height="40" Width="3" Fill="White" RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignVerticalCenterWithPanel="True"></Rectangle>
+                        <Rectangle Height="40" Width="3" Fill="White" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignVerticalCenterWithPanel="True"></Rectangle>
+                        <Path Data="M0,0 L0,30 L3,30 L3,3 L30,3 L30,0 Z" Fill="White"></Path>
+                        <Path Data="M30,0 L30,30 L27,30 L27,3 L0,3 L0,0 Z" Fill="White" RelativePanel.AlignRightWithPanel="True"></Path>
+                        <Path Data="M0,30 L0,0 L3,0 L3,27 L30,27 L30,30 Z" Fill="White" RelativePanel.AlignBottomWithPanel="True"></Path>
+                        <Path Data="M30,30 L30,0 L27,0 L27,27 L0,27 L0,30 Z" Fill="White" RelativePanel.AlignBottomWithPanel="True" RelativePanel.AlignRightWithPanel="True"></Path>
+                    </RelativePanel>
+                </Canvas>
+            </Grid>
             <Grid Name="VideoControls" RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignBottomWithPanel="True" Height="50">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -58,8 +67,8 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <ScrollView Margin="0,0,0,10">
-                <StackPanel>
-                    <TextBlock Name="VideoName" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,10"/>
+                <StackPanel Spacing="10">
+                    <TextBlock Name="VideoName" Style="{StaticResource TitleTextBlockStyle}"/>
                     <Button HorizontalAlignment="Center" Click="GoBack">
                         <StackPanel Orientation="Horizontal">
                             <FontIcon Glyph="&#xE72B;" Margin="0,0,10,0" />
@@ -75,8 +84,7 @@
                                  RelativePanel.AlignBottomWithPanel="True" SpinButtonPlacementMode="Compact" LargeChange="20"/>
                     </RelativePanel>
                     <ToggleButton Name="AspectRatioToggle" HorizontalAlignment="Center" Width="100"
-                                  Checked="ToggleButton_OnChecked" Unchecked="ToggleButton_OnChecked" CornerRadius="10"
-                                  Margin="0, 10">
+                                  Checked="ToggleButton_OnChecked" Unchecked="ToggleButton_OnChecked" CornerRadius="10">
                         <StackPanel CornerRadius="10">
                             <Viewbox MaxWidth="50" Margin="10">
                                 <FontIcon Name="AspectToggleIcon" />
@@ -119,6 +127,7 @@
                             <TextBlock VerticalAlignment="Center">Center Frame</TextBlock>
                         </StackPanel>
                     </Button>
+                    <CheckBox Content="Zoom into frame" Checked="ZoomFrameToggleButton_OnChecked" Unchecked="ZoomFrameToggleButton_OnChecked"></CheckBox>
                 </StackPanel>
             </ScrollView>
             <RelativePanel Visibility="{x:Bind viewModel.BeforeOperation, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}"
