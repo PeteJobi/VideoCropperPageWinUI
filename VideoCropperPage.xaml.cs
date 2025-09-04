@@ -45,8 +45,7 @@ namespace VideoCropper
         private ObservableCollection<AspectRatio> ratios;
         private const double IconMaxSize = 40;
         private readonly double progressMax = 1_000_000;
-        private string outputFile;
-        private readonly List<string> outputFiles = [];
+        private string? outputFile;
         private string? navigateTo;
         private string ffmpegPath, videoPath;
         private double videoWidth, videoHeight;
@@ -64,8 +63,8 @@ namespace VideoCropper
             ratios = new ObservableCollection<AspectRatio>();
             callbacks = new HandlingCallbacks
             {
-                Dragging = CoordinatesChanged,
-                Resizing = _ => { CoordinatesChanged(); }
+                AfterDragging = CoordinatesChanged,
+                AfterResizing = (newRect, _) => CoordinatesChanged(newRect)
             };
             PopulateAspectRatios();
         }
@@ -92,19 +91,17 @@ namespace VideoCropper
             CropFrame.UpdateLayout();
             resizer.InitDraggerResizer(CropFrame, orientations, parameters: new HandlingParameters { KeepAspectRatio = lockedAspectRatio }, callbacks);
             CropFrame.UpdateLayout();
-            UpdateUiWithCoordinates(0, 0);
+            UpdateUiWithCoordinates(new Rect(0, 0, CropFrame.Width, CropFrame.Height));
         }
 
-        private void UpdateUiWithCoordinates(double fakeLeft, double fakeTop)
+        private void UpdateUiWithCoordinates(Rect newRect)
         {
-            var fakeX2 = CropFrame.Width;
-            var fakeY2 = CropFrame.Height;
             var fakeWidth = OverlayAndMask.Width;
             var fakeHeight = OverlayAndMask.Height;
-            X.Text = (fakeLeft / fakeWidth * videoWidth).ToString("F0");
-            Y.Text = (fakeTop / fakeHeight * videoHeight).ToString("F0");
-            XDelta.Text = (fakeX2 / fakeWidth * videoWidth).ToString("F0");
-            YDelta.Text = (fakeY2 / fakeHeight * videoHeight).ToString("F0");
+            X.Text = (newRect.X / fakeWidth * videoWidth).ToString("F0");
+            Y.Text = (newRect.Y / fakeHeight * videoHeight).ToString("F0");
+            XDelta.Text = (newRect.Width / fakeWidth * videoWidth).ToString("F0");
+            YDelta.Text = (newRect.Height / fakeHeight * videoHeight).ToString("F0");
             previousRect.XText = X.Text;
             previousRect.YText = Y.Text;
             previousRect.X2Text = XDelta.Text;
@@ -204,12 +201,15 @@ namespace VideoCropper
             else DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () => viewModel.IsPlaying = false);
         }
 
+        private void CoordinatesChanged(Rect newRect)
+        {
+            mask.Rect = newRect;
+            UpdateUiWithCoordinates(newRect);
+        }
+
         private void CoordinatesChanged()
         {
-            var left = resizer.GetElementLeft(CropFrame);
-            var top = resizer.GetElementTop(CropFrame);
-            mask.Rect = new Rect(left, top, CropFrame.Width, CropFrame.Height);
-            UpdateUiWithCoordinates(left, top);
+            CoordinatesChanged(new Rect(resizer.GetElementLeft(CropFrame), resizer.GetElementTop(CropFrame), CropFrame.Width, CropFrame.Height));
         }
 
         private void PlayPause(object sender, RoutedEventArgs e)
@@ -330,11 +330,6 @@ namespace VideoCropper
             CoordinatesChanged();
         }
 
-        private void InfoBarClosed(InfoBar sender, object args)
-        {
-            viewModel.State = CropperModel.OperationState.BeforeOperation;
-        }
-
         private async void Crop(object sender, RoutedEventArgs e)
         {
             CropProgressText.Text = "0.0";
@@ -358,11 +353,11 @@ namespace VideoCropper
                     viewModel.State = OperationState.BeforeOperation;
                     await ErrorAction(errorMessage!);
                     await cropProcessor.Cancel(outputFile);
+                    outputFile = null;
                     return;
                 }
 
                 viewModel.State = OperationState.AfterOperation;
-                outputFiles.Add(outputFile);
             }
             catch (Exception ex)
             {
@@ -376,9 +371,9 @@ namespace VideoCropper
                 errorMessage = message;
             }
 
-            void SetOutputFile(string folder)
+            void SetOutputFile(string file)
             {
-                outputFile = folder;
+                outputFile = file;
             }
 
             async Task ErrorAction(string message)
@@ -433,7 +428,7 @@ namespace VideoCropper
             VideoPlayer.MediaPlayer.Pause();
             _ = cropProcessor.Cancel(outputFile);
             if (navigateTo == null) Frame.GoBack();
-            else Frame.NavigateToType(Type.GetType(navigateTo), outputFiles, new FrameNavigationOptions { IsNavigationStackEnabled = false });
+            else Frame.NavigateToType(Type.GetType(navigateTo), outputFile, new FrameNavigationOptions { IsNavigationStackEnabled = false });
         }
     }
 
