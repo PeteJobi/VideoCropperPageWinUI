@@ -388,6 +388,8 @@ namespace VideoCropper
             });
             var failed = false;
             string? errorMessage = null;
+            string? tempOutputFile = null;
+            outputFile = null;
             try
             {
                 await cropProcessor.Crop(videoPath, ffmpegPath, X.Text, Y.Text, XDelta.Text, YDelta.Text, progressMax,
@@ -399,11 +401,11 @@ namespace VideoCropper
                     viewModel.State = OperationState.BeforeOperation;
                     await ErrorAction(errorMessage!);
                     await cropProcessor.Cancel(outputFile);
-                    outputFile = null;
                     return;
                 }
 
                 viewModel.State = OperationState.AfterOperation;
+                outputFile = tempOutputFile;
             }
             catch (Exception ex)
             {
@@ -419,7 +421,7 @@ namespace VideoCropper
 
             void SetOutputFile(string file)
             {
-                outputFile = file;
+                tempOutputFile = file;
             }
 
             async Task ErrorAction(string message)

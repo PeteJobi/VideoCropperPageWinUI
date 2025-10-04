@@ -119,14 +119,14 @@ namespace VideoCropperPage
             }
         }
 
-        public async Task Cancel(string outputFolder)
+        public async Task Cancel(string? outputFolder)
         {
             if (currentProcess == null) return;
             currentProcess.Kill();
             await currentProcess.WaitForExitAsync();
             hasBeenKilled = true;
             currentProcess = null;
-            if (Directory.Exists(outputFolder)) Directory.Delete(outputFolder, true);
+            if (File.Exists(outputFolder)) File.Delete(outputFolder);
         }
 
         public void Pause()
