@@ -376,6 +376,32 @@ namespace VideoCropper
             FocusCropFrame();
         }
 
+        private void CanvasContainer_OnSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            CanvasContainer.Clip = new RectangleGeometry
+            {
+                Rect = new Rect(0, 0, CanvasContainer.ActualWidth, CanvasContainer.ActualHeight)
+            };
+            if (!cropFrameInitialized) return;
+            if(zoomIntoFrame) FocusCropFrame();
+            else FitToView();
+        }
+
+        private void ZoomFrameToggleButton_OnChecked(object sender, RoutedEventArgs e)
+        {
+            var checkbox = (CheckBox)sender;
+            if (checkbox.IsChecked == true)
+            {
+                zoomIntoFrame = true;
+                FocusCropFrame();
+            }
+            else
+            {
+                zoomIntoFrame = false;
+                FitToView();
+            }
+        }
+
         private async void Crop(object sender, RoutedEventArgs e)
         {
             CropProgressText.Text = "0.0";
@@ -430,7 +456,7 @@ namespace VideoCropper
             }
         }
 
-        private void PauseOrViewSplit_OnClick(object sender, RoutedEventArgs e)
+        private void PauseOrViewCrop_OnClick(object sender, RoutedEventArgs e)
         {
             if (viewModel.State == OperationState.AfterOperation)
             {
@@ -475,32 +501,6 @@ namespace VideoCropper
             _ = cropProcessor.Cancel(outputFile);
             if (navigateTo == null) Frame.GoBack();
             else Frame.NavigateToType(Type.GetType(navigateTo), outputFile, new FrameNavigationOptions { IsNavigationStackEnabled = false });
-        }
-
-        private void CanvasContainer_OnSizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            CanvasContainer.Clip = new RectangleGeometry
-            {
-                Rect = new Rect(0, 0, CanvasContainer.ActualWidth, CanvasContainer.ActualHeight)
-            };
-            if (!cropFrameInitialized) return;
-            if(zoomIntoFrame) FocusCropFrame();
-            else FitToView();
-        }
-
-        private void ZoomFrameToggleButton_OnChecked(object sender, RoutedEventArgs e)
-        {
-            var checkbox = (CheckBox)sender;
-            if (checkbox.IsChecked == true)
-            {
-                zoomIntoFrame = true;
-                FocusCropFrame();
-            }
-            else
-            {
-                zoomIntoFrame = false;
-                FitToView();
-            }
         }
     }
 

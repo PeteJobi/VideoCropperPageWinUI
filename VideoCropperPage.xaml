@@ -136,7 +136,7 @@
                 <TextBlock Name="CropProgressText" RelativePanel.AlignRightWithPanel="True"/>
                 <ProgressBar Name="CropProgressValue" RelativePanel.Below="CropProgressText" Maximum="{x:Bind progressMax}" RelativePanel.AlignLeftWithPanel="True"
                              RelativePanel.AlignRightWithPanel="True" Margin="0,10"/>
-                <Button RelativePanel.Below="CropProgressValue" Width="120" Click="PauseOrViewSplit_OnClick">
+                <Button RelativePanel.Below="CropProgressValue" Width="120" Click="PauseOrViewCrop_OnClick">
                     <Grid>
                         <StackPanel Orientation="Horizontal" Visibility="{x:Bind viewModel.AfterOperation, Mode=OneWay}">
                             <FontIcon Glyph="&#xE8A7;" Margin="0,0,10,0" />
