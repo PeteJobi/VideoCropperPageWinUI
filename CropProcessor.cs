@@ -21,7 +21,7 @@ namespace VideoCropperPage
             var duration = TimeSpan.MinValue;
             progress.Report(new ValueProgress(0, "0.0 %"));
             var outputFile = GetOutputName(fileName, setOutputFile);
-            await StartProcess(ffmpegPath, $"-i \"{fileName}\" -vf \"crop={width}:{height}:{x}:{y}\" -c:v libx265 -c:a copy -crf 18 -preset slow \"{outputFile}\"", null, (o, args) =>
+            await StartProcess(ffmpegPath, $"-i \"{fileName}\" -vf \"crop={width}:{height}:{x}:{y}\" -c:v libx265 -c:a copy -crf 18 \"{outputFile}\"", null, (o, args) =>
             {
                 if (string.IsNullOrWhiteSpace(args.Data) || hasBeenKilled) return;
                 Debug.WriteLine(args.Data);
