@@ -14,9 +14,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Numerics;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using VideoCropperPage;
@@ -24,7 +21,6 @@ using Windows.ApplicationModel;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Media.Core;
-using Windows.Media.Playback;
 using static VideoCropper.CropperModel;
 using Orientation = DraggerResizer.Orientation;
 
@@ -71,8 +67,6 @@ namespace VideoCropper
             navigateTo = props.TypeToNavigateTo;
             VideoName.Text = Path.GetFileName(videoPath);
             VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(videoPath));
-            VideoPlayer.MediaPlayer.PlaybackSession.NaturalDurationChanged += PlaybackSessionOnNaturalDurationChanged;
-            VideoPlayer.MediaPlayer.PlaybackSession.PlaybackStateChanged += PlaybackSession_PlaybackStateChanged;
             base.OnNavigatedTo(e);
         }
 
@@ -120,22 +114,6 @@ namespace VideoCropper
             return new AspectRatio { Title = $"{aspectWidth}:{aspectHeight}", Width = width, Height = height };
         }
 
-        private void PlaybackSessionOnNaturalDurationChanged(MediaPlaybackSession sender, object args)
-        {
-            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () =>
-            {
-                VideoProgressSlider.Maximum = sender.NaturalDuration.TotalSeconds;
-                VideoProgressSlider.Value = 0;
-                SetVideoTime();
-            });
-        }
-
-        private async void PlaybackSession_PlaybackStateChanged(MediaPlaybackSession sender, object args)
-        {
-            if (sender.PlaybackState == MediaPlaybackState.Playing) await AnimateSeeker(sender);
-            else DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () => viewModel.IsPlaying = false);
-        }
-
         private void CoordinatesChanged(Rect newRect)
         {
             mask.Rect = newRect;
@@ -145,46 +123,6 @@ namespace VideoCropper
         private void CoordinatesChanged()
         {
             CoordinatesChanged(new Rect(resizer.GetElementLeft(CropFrame), resizer.GetElementTop(CropFrame), CropFrame.Width, CropFrame.Height));
-        }
-
-        private void PlayPause(object sender, RoutedEventArgs e)
-        {
-            if (VideoPlayer.MediaPlayer.PlaybackSession.PlaybackState == MediaPlaybackState.Playing)
-            {
-                VideoPlayer.MediaPlayer.Pause();
-                viewModel.IsPlaying = false;
-            }
-            else
-            {
-                VideoPlayer.MediaPlayer.Play();
-                viewModel.IsPlaying = true;
-            }
-        }
-
-        private async Task AnimateSeeker(MediaPlaybackSession session)
-        {
-            const int frameTime24Fps = 1000 / 24;
-            while (session.PlaybackState == MediaPlaybackState.Playing)
-            {
-                if (DispatcherQueue == null) return;
-                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.High, () =>
-                {
-                    progressChangedByCode = true;
-                    VideoProgressSlider.Value = session.Position.TotalSeconds;
-                    progressChangedByCode = false;
-                    SetVideoTime();
-                });
-                await Task.Delay(frameTime24Fps);
-            }
-        }
-
-        private void SetVideoTime() => VideoTime.Text = $@"{VideoPlayer.MediaPlayer.PlaybackSession.Position:hh\:mm\:ss} / {VideoPlayer.MediaPlayer.PlaybackSession.NaturalDuration:hh\:mm\:ss}";
-
-        private void VideoProgressSlider_OnValueChanged(object sender, RangeBaseValueChangedEventArgs e)
-        {
-            if (progressChangedByCode) return;
-            VideoPlayer.MediaPlayer.PlaybackSession.Position = TimeSpan.FromSeconds(e.NewValue);
-            SetVideoTime();
         }
 
         private void ToggleButton_OnChecked(object sender, RoutedEventArgs e)
