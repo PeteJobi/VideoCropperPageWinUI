@@ -8,15 +8,12 @@
     xmlns:converters="using:CommunityToolkit.WinUI.Converters"
     xmlns:videoCropper="using:VideoCropper"
     xmlns:timeline="using:Timeline"
+    xmlns:controls="using:WinUIShared.Controls"
     mc:Ignorable="d">
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <converters:BoolNegationConverter x:Key="BoolNegationConverter" />
-        <converters:BoolToObjectConverter x:Key="PlayPauseGlyphConverter" TrueValue="&#xF8AE;" FalseValue="&#xF5B0;"/>
-        <converters:BoolToObjectConverter x:Key="CloseOrCancelConverter" TrueValue="Close" FalseValue="Cancel"/>
-        <converters:BoolToObjectConverter x:Key="ResumeOrPauseConverter" TrueValue="Resume" FalseValue="Pause"/>
         <converters:BoolToObjectConverter x:Key="CroppingOrDoneConverter" TrueValue="Cropping..." FalseValue="Done"/>
-        <converters:BoolToObjectConverter x:Key="ResumeOrPauseGlyphConverter" TrueValue="&#xE768;" FalseValue="&#xE784;"/>
     </Page.Resources>
 
     <Grid>
@@ -49,7 +46,13 @@
                 </Canvas>
             </Grid>
             <timeline:VideoControls x:Name="VideoControls" MediaPlayer="{x:Bind VideoPlayer.MediaPlayer}" RelativePanel.AlignRightWithPanel="True" 
-                                    RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignBottomWithPanel="True" Height="50" Margin="10,0,0,0"/>
+                                    RelativePanel.AlignLeftWithPanel="True" RelativePanel.Above="ProcessProgress" Height="50" Margin="10,0"/>
+            <controls:ProcessProgress x:Name="ProcessProgress" State="{x:Bind viewModel.State, Mode=OneWay}" RelativePanel.AlignBottomWithPanel="True" 
+                                      LeftTextPrimary="{x:Bind viewModel.AfterOperation, Mode=OneWay, Converter={StaticResource CroppingOrDoneConverter}, ConverterParameter=True}"
+                                      PauseRequested="ProcessProgress_OnPauseRequested" ResumeRequested="ProcessProgress_OnResumeRequested"
+                                      ViewRequested="ProcessProgress_OnViewRequested" CancelRequested="ProcessProgress_OnCancelRequested"
+                                      RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignRightWithPanel="True"
+                                      CloseRequested="ProcessProgress_OnCloseRequested" OnlyPrimary="True"/>
         </RelativePanel>
         <Grid Grid.Column="1" Padding="10">
             <Grid.RowDefinitions>
@@ -121,41 +124,6 @@
                     <CheckBox Content="Zoom into frame" Checked="ZoomFrameToggleButton_OnChecked" Unchecked="ZoomFrameToggleButton_OnChecked"></CheckBox>
                 </StackPanel>
             </ScrollView>
-            <RelativePanel Visibility="{x:Bind viewModel.BeforeOperation, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}"
-                           Grid.Row="1" Margin="0,0,0,10">
-                <TextBlock Text="{x:Bind viewModel.AfterOperation, Mode=OneWay, Converter={StaticResource CroppingOrDoneConverter}, ConverterParameter=True}"/>
-                <TextBlock Name="CropProgressText" RelativePanel.AlignRightWithPanel="True"/>
-                <ProgressBar Name="CropProgressValue" RelativePanel.Below="CropProgressText" Maximum="{x:Bind progressMax}" RelativePanel.AlignLeftWithPanel="True"
-                             RelativePanel.AlignRightWithPanel="True" Margin="0,10"/>
-                <Button RelativePanel.Below="CropProgressValue" Width="120" Click="PauseOrViewCrop_OnClick">
-                    <Grid>
-                        <StackPanel Orientation="Horizontal" Visibility="{x:Bind viewModel.AfterOperation, Mode=OneWay}">
-                            <FontIcon Glyph="&#xE8A7;" Margin="0,0,10,0" />
-                            <TextBlock VerticalAlignment="Center" Text="View"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Visibility="{x:Bind viewModel.DuringOperation, Mode=OneWay}">
-                            <FontIcon Glyph="{x:Bind viewModel.ProcessPaused, Mode=OneWay, Converter={StaticResource ResumeOrPauseGlyphConverter}}" Margin="0,0,10,0" />
-                            <TextBlock VerticalAlignment="Center" Text="{x:Bind viewModel.ProcessPaused, Mode=OneWay, Converter={StaticResource ResumeOrPauseConverter}}"/>
-                        </StackPanel>
-                    </Grid>
-                </Button>
-                <Button RelativePanel.Below="CropProgressValue" RelativePanel.AlignRightWithPanel="True" Width="120" Click="CancelOrCloseSplit_OnClick">
-                    <FlyoutBase.AttachedFlyout>
-                        <Flyout x:Name="CancelFlyout">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{ThemeResource BaseTextBlockStyle}" VerticalAlignment="Center">Cancel process?</TextBlock>
-                                <Button ToolTipService.ToolTip="Done" Margin="10,0,0,0" Click="CancelProcess">
-                                    <FontIcon Glyph="&#xE8FB;" />
-                                </Button>
-                            </StackPanel>
-                        </Flyout>
-                    </FlyoutBase.AttachedFlyout>
-                    <StackPanel Orientation="Horizontal">
-                        <FontIcon Glyph="&#xE711;" Margin="0,0,10,0" />
-                        <TextBlock VerticalAlignment="Center" Text="{x:Bind viewModel.AfterOperation, Mode=OneWay, Converter={StaticResource CloseOrCancelConverter}}"/>
-                    </StackPanel>
-                </Button>
-            </RelativePanel>
             <Button HorizontalAlignment="Stretch" Grid.Row="2" Style="{StaticResource AccentButtonStyle}" Click="Crop"
                         IsEnabled="{x:Bind viewModel.DuringOperation, Mode=OneWay, Converter={StaticResource BoolNegationConverter}}">
                 <Grid>

@@ -21,7 +21,7 @@ using Windows.ApplicationModel;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Media.Core;
-using static VideoCropper.CropperModel;
+using WinUIShared.Enums;
 using Orientation = DraggerResizer.Orientation;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -342,13 +342,13 @@ namespace VideoCropper
 
         private async void Crop(object sender, RoutedEventArgs e)
         {
-            CropProgressText.Text = "0.0";
-            CropProgressValue.Value = 0;
+            ProcessProgress.RightTextPrimary = "0.0";
+            ProcessProgress.ProgressPrimary = 0;
             viewModel.State = OperationState.DuringOperation;
             var valueProgress = new Progress<ValueProgress>(progress =>
             {
-                CropProgressValue.Value = progress.ActionProgress;
-                CropProgressText.Text = progress.ActionProgressText;
+                ProcessProgress.ProgressPrimary = progress.ActionProgress;
+                ProcessProgress.RightTextPrimary = progress.ActionProgressText;
             });
             var failed = false;
             string? errorMessage = null;
@@ -394,44 +394,19 @@ namespace VideoCropper
             }
         }
 
-        private void PauseOrViewCrop_OnClick(object sender, RoutedEventArgs e)
-        {
-            if (viewModel.State == OperationState.AfterOperation)
-            {
-                cropProcessor.ViewFiles(outputFile);
-                return;
-            }
+        private void ProcessProgress_OnPauseRequested(object? sender, EventArgs e) => cropProcessor.Pause();
 
-            if (viewModel.ProcessPaused)
-            {
-                cropProcessor.Resume();
-                viewModel.ProcessPaused = false;
-            }
-            else
-            {
-                cropProcessor.Pause();
-                viewModel.ProcessPaused = true;
-            }
-        }
+        private void ProcessProgress_OnResumeRequested(object? sender, EventArgs e) => cropProcessor.Resume();
 
-        private void CancelOrCloseSplit_OnClick(object sender, RoutedEventArgs e)
-        {
-            if (viewModel.State == OperationState.AfterOperation)
-            {
-                viewModel.State = OperationState.BeforeOperation;
-                return;
-            }
+        private void ProcessProgress_OnViewRequested(object? sender, EventArgs e) => cropProcessor.ViewFile(outputFile);
 
-            FlyoutBase.ShowAttachedFlyout((FrameworkElement)sender);
-        }
-
-        private async void CancelProcess(object sender, RoutedEventArgs e)
+        private async void ProcessProgress_OnCancelRequested(object? sender, EventArgs e)
         {
             await cropProcessor.Cancel(outputFile);
             viewModel.State = OperationState.BeforeOperation;
-            viewModel.ProcessPaused = false;
-            CancelFlyout.Hide();
         }
+
+        private void ProcessProgress_OnCloseRequested(object? sender, EventArgs e) => viewModel.State = OperationState.BeforeOperation;
 
         private void GoBack(object sender, RoutedEventArgs e)
         {
