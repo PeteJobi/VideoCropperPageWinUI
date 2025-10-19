@@ -179,6 +179,7 @@ namespace VideoCropperPage
             ffmpeg.Start();
             ffmpeg.BeginErrorReadLine();
             ffmpeg.BeginOutputReadLine();
+            hasBeenKilled = false;
             currentProcess = ffmpeg;
             await ffmpeg.WaitForExitAsync();
             ffmpeg.Dispose();
