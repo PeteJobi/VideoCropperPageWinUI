@@ -41,7 +41,7 @@ namespace VideoCropper
         private bool progressChangedByCode;
         private readonly ObservableCollection<AspectRatio> ratios = [];
         private const double IconMaxSize = 40;
-        private readonly double progressMax = 1_000_000;
+        private readonly double progressMax = 100;
         private string? outputFile;
         private string? navigateTo;
         private string ffmpegPath, videoPath;
@@ -354,7 +354,7 @@ namespace VideoCropper
             string? errorMessage = null;
             try
             {
-                await cropProcessor.Crop(videoPath, ffmpegPath, X.Text, Y.Text, XDelta.Text, YDelta.Text, progressMax,
+                await cropProcessor.Crop(videoPath, ffmpegPath, X.Text, Y.Text, XDelta.Text, YDelta.Text,
                     valueProgress, SetOutputFile, ErrorActionFromFfmpeg);
 
                 if (viewModel.State == OperationState.BeforeOperation) return; //Canceled
