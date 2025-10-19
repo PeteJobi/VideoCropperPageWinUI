@@ -186,6 +186,14 @@ namespace VideoCropper
             ratios.Insert(0, originalAspectRatio);
 
             FitToView();
+            viewModel.PropertyChanged += (s, args) =>
+            {
+                if (args.PropertyName == nameof(CropperModel.BeforeOperation))
+                {
+                    if (zoomIntoFrame) FocusCropFrame();
+                    else FitToView();
+                }
+            };
         }
 
         private void FocusCropFrame()
