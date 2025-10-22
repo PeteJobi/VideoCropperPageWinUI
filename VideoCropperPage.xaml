@@ -47,12 +47,12 @@
             </Grid>
             <timeline:VideoControls x:Name="VideoControls" MediaPlayer="{x:Bind VideoPlayer.MediaPlayer}" RelativePanel.AlignRightWithPanel="True" 
                                     RelativePanel.AlignLeftWithPanel="True" RelativePanel.Above="ProcessProgress" Height="50" Margin="10,0"/>
-            <controls:ProcessProgress x:Name="ProcessProgress" State="{x:Bind viewModel.State, Mode=OneWay}" RelativePanel.AlignBottomWithPanel="True" 
+            <controls:ProcessProgress x:Name="ProcessProgress" State="{x:Bind viewModel.State, Mode=TwoWay}" RelativePanel.AlignBottomWithPanel="True" 
                                       LeftTextPrimary="{x:Bind viewModel.AfterOperation, Mode=OneWay, Converter={StaticResource CroppingOrDoneConverter}, ConverterParameter=True}"
                                       PauseRequested="ProcessProgress_OnPauseRequested" ResumeRequested="ProcessProgress_OnResumeRequested"
                                       ViewRequested="ProcessProgress_OnViewRequested" CancelRequested="ProcessProgress_OnCancelRequested"
                                       RelativePanel.AlignLeftWithPanel="True" RelativePanel.AlignRightWithPanel="True"
-                                      CloseRequested="ProcessProgress_OnCloseRequested" OnlyPrimary="True"/>
+                                      CloseRequested="ProcessProgress_OnCloseRequested" OnlyPrimary="True" Padding="10"/>
         </RelativePanel>
         <Grid Grid.Column="1" Padding="10">
             <Grid.RowDefinitions>
