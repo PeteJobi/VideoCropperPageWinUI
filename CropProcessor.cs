@@ -13,10 +13,11 @@ namespace VideoCropperPage
     {
         private Process? currentProcess;
         private bool hasBeenKilled;
+        private const double Max = 100.0;
         private const string FileNameLongError =
             "The source file name is too long. Shorten it to get the total number of characters in the destination directory lower than 256.\n\nDestination directory: ";
 
-        public async Task Crop(string fileName, string ffmpegPath, string x, string y, string width, string height, double progressMax, IProgress<ValueProgress> progress, Action<string> setOutputFile, Action<string> error)
+        public async Task Crop(string fileName, string ffmpegPath, string x, string y, string width, string height, IProgress<ValueProgress> progress, Action<string> setOutputFile, Action<string> error)
         {
             var duration = TimeSpan.MinValue;
             progress.Report(new ValueProgress(0, "0.0 %"));
@@ -37,11 +38,11 @@ namespace VideoCropperPage
                     if (CheckNoSpaceDuringOperation(args.Data, error)) return;
                     var matchCollection = Regex.Matches(args.Data, @"^frame=\s*\d+\s.+?time=(\d{2}:\d{2}:\d{2}\.\d{2}).+");
                     if (matchCollection.Count == 0) return;
-                    IncrementProgress(TimeSpan.Parse(matchCollection[0].Groups[1].Value), duration, progressMax, progress);
+                    IncrementProgress(TimeSpan.Parse(matchCollection[0].Groups[1].Value), duration, progress);
                 }
             });
             if (HasBeenKilled()) return;
-            AllDone(progressMax, progress);
+            AllDone(progress);
         }
 
         private static string GetOutputName(string path, Action<string> setFile)
@@ -71,23 +72,23 @@ namespace VideoCropperPage
             return true;
         }
 
-        private void IncrementProgress(TimeSpan currentTime, TimeSpan totalDuration, double max, IProgress<ValueProgress> progress)
+        private void IncrementProgress(TimeSpan currentTime, TimeSpan totalDuration, IProgress<ValueProgress> progress)
         {
             var fraction = currentTime / totalDuration;
-            progress.Report(new ValueProgress(fraction * max, $"{Math.Round(fraction * 100, 2)} %"));
+            progress.Report(new ValueProgress(fraction * Max, $"{Math.Round(fraction * 100, 2)} %"));
         }
 
-        void AllDone(double max, IProgress<ValueProgress> valueProgress)
+        void AllDone(IProgress<ValueProgress> valueProgress)
         {
             currentProcess = null;
             valueProgress.Report(new ValueProgress
             {
-                ActionProgress = max,
+                ActionProgress = Max,
                 ActionProgressText = "100 %"
             });
         }
 
-        public void ViewFiles(string file)
+        public void ViewFile(string file)
         {
             var info = new ProcessStartInfo();
             info.FileName = "explorer";
@@ -179,6 +180,7 @@ namespace VideoCropperPage
             ffmpeg.Start();
             ffmpeg.BeginErrorReadLine();
             ffmpeg.BeginOutputReadLine();
+            hasBeenKilled = false;
             currentProcess = ffmpeg;
             await ffmpeg.WaitForExitAsync();
             ffmpeg.Dispose();
