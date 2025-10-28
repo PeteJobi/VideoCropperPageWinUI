@@ -18,24 +18,13 @@ namespace VideoCropper
         public bool IsPlaying
         {
             get => _isplaying;
-            set
-            {
-                _isplaying = value;
-                OnPropertyChanged();
-            }
+            set => SetProperty(ref _isplaying, value);
         }
         private OperationState _state;
         public OperationState State
         {
             get => _state;
-            set
-            {
-                _state = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(BeforeOperation));
-                OnPropertyChanged(nameof(DuringOperation));
-                OnPropertyChanged(nameof(AfterOperation));
-            }
+            set => SetProperty(ref _state, value, alsoNotify: [nameof(BeforeOperation), nameof(DuringOperation), nameof(AfterOperation)]);
         }
 
         public bool BeforeOperation => State == OperationState.BeforeOperation;
@@ -46,6 +35,14 @@ namespace VideoCropper
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null, params string[] alsoNotify)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            field = value;
+            OnPropertyChanged(propertyName);
+            foreach (var dep in alsoNotify) OnPropertyChanged(dep);
+            return true;
         }
     }
 }
