@@ -36,7 +36,7 @@ namespace VideoCropper
     {
         private DraggerResizer.DraggerResizer resizer;
         private readonly CropperModel viewModel;
-        private readonly CropProcessor cropProcessor;
+        private CropProcessor cropProcessor;
         private RectangleGeometry mask;
         private bool progressChangedByCode;
         private readonly ObservableCollection<AspectRatio> ratios = [];
@@ -55,7 +55,6 @@ namespace VideoCropper
             InitializeComponent();
             resizer = new DraggerResizer.DraggerResizer();
             viewModel = new CropperModel();
-            cropProcessor = new CropProcessor();
             PopulateAspectRatios();
         }
 
@@ -63,6 +62,7 @@ namespace VideoCropper
         {
             var props = (CropperProps)e.Parameter;
             ffmpegPath = props.FfmpegPath;
+            cropProcessor = new CropProcessor(ffmpegPath);
             videoPath = props.VideoPath;
             navigateTo = props.TypeToNavigateTo;
             VideoName.Text = Path.GetFileName(videoPath);
@@ -350,78 +350,14 @@ namespace VideoCropper
 
         private async void Crop(object sender, RoutedEventArgs e)
         {
-            ProcessProgress.RightTextPrimary = "0.0";
-            ProcessProgress.ProgressPrimary = 0;
-            viewModel.State = OperationState.DuringOperation;
-            var valueProgress = new Progress<ValueProgress>(progress =>
-            {
-                ProcessProgress.ProgressPrimary = progress.ActionProgress;
-                ProcessProgress.RightTextPrimary = progress.ActionProgressText;
-            });
-            var failed = false;
-            string? errorMessage = null;
-            string? tempOutputFile = null;
-            outputFile = null;
-            try
-            {
-                await cropProcessor.Crop(videoPath, ffmpegPath, X.Text, Y.Text, XDelta.Text, YDelta.Text,
-                    valueProgress, SetOutputFile, ErrorActionFromFfmpeg);
-
-                if (viewModel.State == OperationState.BeforeOperation) return; //Canceled
-                if (failed)
-                {
-                    viewModel.State = OperationState.BeforeOperation;
-                    await ErrorAction(errorMessage!);
-                    await cropProcessor.Cancel(outputFile);
-                    return;
-                }
-
-                viewModel.State = OperationState.AfterOperation;
-                outputFile = tempOutputFile;
-            }
-            catch (Exception ex)
-            {
-                await ErrorAction(ex.Message);
-                viewModel.State = OperationState.BeforeOperation;
-            }
-
-            void ErrorActionFromFfmpeg(string message)
-            {
-                failed = true;
-                errorMessage = message;
-            }
-
-            void SetOutputFile(string file)
-            {
-                tempOutputFile = file;
-            }
-
-            async Task ErrorAction(string message)
-            {
-                ErrorDialog.Title = "Crop operation failed";
-                ErrorDialog.Content = message;
-                await ErrorDialog.ShowAsync();
-            }
+            outputFile = await ProcessManager.StartProcess(cropProcessor.Crop(videoPath, ffmpegPath, X.Text, Y.Text,
+                XDelta.Text, YDelta.Text));
         }
-
-        private void ProcessProgress_OnPauseRequested(object? sender, EventArgs e) => cropProcessor.Pause();
-
-        private void ProcessProgress_OnResumeRequested(object? sender, EventArgs e) => cropProcessor.Resume();
-
-        private void ProcessProgress_OnViewRequested(object? sender, EventArgs e) => cropProcessor.ViewFile(outputFile);
-
-        private async void ProcessProgress_OnCancelRequested(object? sender, EventArgs e)
-        {
-            await cropProcessor.Cancel(outputFile);
-            viewModel.State = OperationState.BeforeOperation;
-        }
-
-        private void ProcessProgress_OnCloseRequested(object? sender, EventArgs e) => viewModel.State = OperationState.BeforeOperation;
 
         private void GoBack(object sender, RoutedEventArgs e)
         {
             VideoPlayer.MediaPlayer.Pause();
-            _ = cropProcessor.Cancel(outputFile);
+            _ = cropProcessor.Cancel();
             if (navigateTo == null) Frame.GoBack();
             else Frame.NavigateToType(Type.GetType(navigateTo), outputFile, new FrameNavigationOptions { IsNavigationStackEnabled = false });
         }
