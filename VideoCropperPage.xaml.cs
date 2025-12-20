@@ -21,6 +21,7 @@ using Windows.ApplicationModel;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Media.Core;
+using WinUIShared.Controls;
 using WinUIShared.Enums;
 using Orientation = DraggerResizer.Orientation;
 
@@ -65,6 +66,7 @@ namespace VideoCropper
             cropProcessor = new CropProcessor(ffmpegPath);
             videoPath = props.VideoPath;
             navigateTo = props.TypeToNavigateTo;
+            HardwareSelector.SelectedGpu = props.Gpu;
             VideoName.Text = Path.GetFileName(videoPath);
             VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(videoPath));
             base.OnNavigatedTo(e);
@@ -374,5 +376,6 @@ namespace VideoCropper
         public string FfmpegPath { get; set; }
         public string VideoPath { get; set; }
         public string? TypeToNavigateTo { get; set; }
+        public GpuInfo? Gpu { get; set; }
     }
 }
