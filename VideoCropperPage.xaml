@@ -121,7 +121,7 @@
                     <CheckBox Content="Zoom into frame" Checked="ZoomFrameToggleButton_OnChecked" Unchecked="ZoomFrameToggleButton_OnChecked"></CheckBox>
                 </StackPanel>
             </ScrollView>
-            <controls:HardwareSelector Grid.Row="2" x:Name="HardwareSelector" Processor="{x:Bind cropProcessor}" Margin="0,0,0,10"/>
+            <controls:HardwareSelector Grid.Row="2" x:Name="HardwareSelector" Margin="0,0,0,10"/>
             <Button HorizontalAlignment="Stretch" Grid.Row="3" Style="{StaticResource AccentButtonStyle}" Click="Crop"
                         IsEnabled="{x:Bind viewModel.DuringOperation, Mode=OneWay, Converter={StaticResource BoolNegationConverter}}">
                 <Grid>
