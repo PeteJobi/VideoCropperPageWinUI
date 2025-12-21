@@ -352,6 +352,7 @@ namespace VideoCropper
 
         private async void Crop(object sender, RoutedEventArgs e)
         {
+            outputFile = null;
             outputFile = await ProcessManager.StartProcess(cropProcessor.Crop(videoPath, ffmpegPath, X.Text, Y.Text,
                 XDelta.Text, YDelta.Text));
         }
