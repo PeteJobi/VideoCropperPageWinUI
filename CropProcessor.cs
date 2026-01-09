@@ -13,13 +13,17 @@ namespace VideoCropperPage
             progressPrimary.Report(0);
             centerTextPrimary.Report("0.0 %");
             rightTextPrimary.Report("Cropping...");
-            var cropParams = gpuInfo?.Vendor switch
+            var cropParams = $"crop={width}:{height}:{x}:{y}";
+            switch (gpuInfo?.Vendor)
             {
-                GpuVendor.Nvidia => $"hwdownload,format=nv12,crop={width}:{height}:{x}:{y},hwupload_cuda",
-                GpuVendor.Amd => $"hwdownload,format=nv12,crop={width}:{height}:{x}:{y},format=nv12",
-                GpuVendor.Intel => $"vpp_qsv=w={width}:h={height}:crop_x={x}:crop_y={y}",
-                _ => $"crop={width}:{height}:{x}:{y}"
-            };
+                case GpuVendor.Intel:
+                    cropParams = $"vpp_qsv=w={width}:h={height}:crop_x={x}:crop_y={y}";
+                    break;
+                case GpuVendor.Nvidia or GpuVendor.Amd:
+                    var (hwDownArgs, hwUpArgs) = GpuInfo.FilterParams(gpuInfo);
+                    cropParams = $"{hwDownArgs}{cropParams}{hwUpArgs}";
+                    break;
+            }
             await StartFfmpegTranscodingProcessDefaultQuality([fileName], GetOutputName(fileName), $"-vf \"{cropParams}\"", (progress, _, _, _) =>
             {
                 IncrementProgress(progress);
