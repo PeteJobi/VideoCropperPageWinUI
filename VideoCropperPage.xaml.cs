@@ -23,6 +23,7 @@ using Windows.Foundation.Collections;
 using Windows.Media.Core;
 using WinUIShared.Controls;
 using WinUIShared.Enums;
+using WinUIShared.Helpers;
 using Orientation = DraggerResizer.Orientation;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -64,7 +65,7 @@ namespace VideoCropper
             var props = (CropperProps)e.Parameter;
             ffmpegPath = props.FfmpegPath;
             cropProcessor = new CropProcessor(ffmpegPath);
-            videoPath = props.VideoPath;
+            videoPath = Processor.GetSafePath(props.VideoPath);
             navigateTo = props.TypeToNavigateTo;
             HardwareSelector.SelectedGpu = props.Gpu;
             VideoName.Text = Path.GetFileName(videoPath);
