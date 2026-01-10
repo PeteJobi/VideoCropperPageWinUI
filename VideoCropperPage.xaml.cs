@@ -65,11 +65,11 @@ namespace VideoCropper
             var props = (CropperProps)e.Parameter;
             ffmpegPath = props.FfmpegPath;
             cropProcessor = new CropProcessor(ffmpegPath);
-            videoPath = Processor.GetSafePath(props.VideoPath);
+            videoPath = props.VideoPath;
             navigateTo = props.TypeToNavigateTo;
             HardwareSelector.SelectedGpu = props.Gpu;
             VideoName.Text = Path.GetFileName(videoPath);
-            VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(videoPath));
+            VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(Processor.GetSafePath(videoPath)));
             base.OnNavigatedTo(e);
         }
 
