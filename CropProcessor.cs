@@ -20,7 +20,8 @@ namespace VideoCropperPage
                     cropParams = $"vpp_qsv=w={width}:h={height}:crop_x={x}:crop_y={y}";
                     break;
                 case GpuVendor.Nvidia or GpuVendor.Amd:
-                    var (hwDownArgs, hwUpArgs) = GpuInfo.FilterParams(gpuInfo);
+                    var gpuPixelFormat = await GetGpuPixelFormat(fileName);
+                    var (hwDownArgs, hwUpArgs) = GpuInfo.FilterParams(gpuInfo, gpuPixelFormat);
                     cropParams = $"{hwDownArgs}{cropParams}{hwUpArgs}";
                     break;
             }
