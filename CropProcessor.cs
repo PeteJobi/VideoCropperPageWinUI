@@ -6,7 +6,7 @@ using WinUIShared.Helpers;
 
 namespace VideoCropperPage
 {
-    public class CropProcessor(string ffmpegPath): Processor(ffmpegPath, new FileLogger.FileLogger($"{nameof(ReelBox)}/Crop"))
+    public class CropProcessor(string ffmpegPath): Processor(ffmpegPath, new FileLogger.FileLogger("ReelBox/Crop"))
     {
         public async Task Crop(string fileName, string ffmpegPath, string x, string y, string width, string height)
         {
