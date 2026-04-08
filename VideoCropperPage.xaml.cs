@@ -202,7 +202,7 @@ namespace VideoCropper
         private void FocusCropFrame()
         {
             if (!zoomIntoFrame) return;
-            const int margin = 200;
+            const int margin = 100;
             var left = resizer.GetElementLeft(CropFrame);
             var top = resizer.GetElementTop(CropFrame);
             double panX, panY, zoom;
@@ -227,14 +227,14 @@ namespace VideoCropper
             if (CanvasContainer.ActualWidth / CanvasContainer.ActualHeight < Canvas.Width / Canvas.Height)
             {
                 zoom = CanvasContainer.ActualWidth / Canvas.Width; // Fit to width
-                var scaledHeight = CanvasContainer.ActualWidth * Canvas.Height / Canvas.Width;
+                var scaledHeight = zoom * Canvas.Height;
                 panY = (CanvasContainer.ActualHeight - scaledHeight) / 2; // Center vertically
                 panX = 0;
             }
             else
             {
                 zoom = CanvasContainer.ActualHeight / Canvas.Height; // Fit to height
-                var scaledWidth = CanvasContainer.ActualHeight * Canvas.Width / Canvas.Height;
+                var scaledWidth = zoom * Canvas.Width;
                 panX = (CanvasContainer.ActualWidth - scaledWidth) / 2; // Center horizontally
                 panY = 0;
             }
