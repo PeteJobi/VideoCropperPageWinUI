@@ -17,7 +17,7 @@ namespace VideoCropperPage
             switch (gpuInfo?.Vendor)
             {
                 case GpuVendor.Intel:
-                    cropParams = $"vpp_qsv=w={width}:h={height}:crop_x={x}:crop_y={y}";
+                    cropParams = $"vpp_qsv=cw={width}:ch={height}:cx={x}:cy={y}";
                     break;
                 case GpuVendor.Nvidia or GpuVendor.Amd:
                     var gpuPixelFormat = await GetGpuPixelFormat(fileName);
