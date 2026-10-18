@@ -13,22 +13,22 @@ namespace VideoCropperPage
             progressPrimary.Report(0);
             centerTextPrimary.Report("0.0 %");
             rightTextPrimary.Report("Cropping...");
-            var cropParams = $"crop={width}:{height}:{x}:{y}";
+            var cropFilter = $"crop={width}:{height}:{x}:{y}";
             switch (gpuInfo?.Vendor)
             {
                 case GpuVendor.Intel:
-                    cropParams = $"vpp_qsv=cw={width}:ch={height}:cx={x}:cy={y}";
+                    cropFilter = $"vpp_qsv=cw={width}:ch={height}:cx={x}:cy={y}";
                     break;
                 case GpuVendor.Nvidia or GpuVendor.Amd:
                     var gpuPixelFormat = await GetGpuPixelFormat(fileName);
                     var (hwDownArgs, hwUpArgs) = GpuInfo.FilterParams(gpuInfo, gpuPixelFormat);
-                    cropParams = $"{hwDownArgs}{cropParams}{hwUpArgs}";
+                    cropFilter = $"{hwDownArgs}{cropFilter}{hwUpArgs}";
                     break;
             }
-            await StartFfmpegTranscodingProcessDefaultQuality([fileName], GetOutputName(fileName), $"-vf \"{cropParams}\"", (progress, _, _, _) =>
-            {
-                IncrementProgress(progress);
-            });
+
+            await Ffmpeg().Input(fileName).Output(GetOutputName(fileName))
+                .VideoFilter(cropFilter).ProgressHandler((progress, _, _, _) => IncrementProgress(progress))
+                .StartTranscodingProcess();
             if (HasBeenKilled()) return;
             AllDone();
         }
