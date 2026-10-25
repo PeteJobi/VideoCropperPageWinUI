@@ -24,6 +24,7 @@ using Windows.Media.Core;
 using WinUIShared.Controls;
 using WinUIShared.Enums;
 using WinUIShared.Helpers;
+using WinUIShared.Interfaces;
 using Orientation = DraggerResizer.Orientation;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -34,7 +35,7 @@ namespace VideoCropper
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
-    public sealed partial class VideoCropperPage : Page
+    public sealed partial class VideoCropperPage : Page, INavigablePage
     {
         private DraggerResizer.DraggerResizer resizer;
         private readonly CropperModel viewModel;
@@ -358,12 +359,13 @@ namespace VideoCropper
                 XDelta.Text, YDelta.Text));
         }
 
-        private void GoBack(object sender, RoutedEventArgs e)
+        public bool GoBackRequested()
         {
             VideoPlayer.MediaPlayer.Pause();
             _ = cropProcessor.Cancel();
             if (navigateTo == null) Frame.GoBack();
             else Frame.NavigateToType(Type.GetType(navigateTo), outputFile, new FrameNavigationOptions { IsNavigationStackEnabled = false });
+            return true;
         }
     }
 
