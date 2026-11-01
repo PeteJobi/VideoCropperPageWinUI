@@ -210,14 +210,14 @@ namespace VideoCropper
             if (CanvasContainer.ActualWidth / CanvasContainer.ActualHeight < CropFrame.Width / CropFrame.Height)
             {
                 zoom = CanvasContainer.ActualWidth / Math.Min(CropFrame.Width + margin * 2, Canvas.Width);
-                panX = -(left * zoom - (CanvasContainer.ActualWidth - CropFrame.Width * zoom) / 2);
-                panY = -(top * zoom - (CanvasContainer.ActualHeight - CropFrame.Height * zoom) / 2);
+                panX = (CanvasContainer.ActualWidth - CropFrame.Width * zoom) / 2 - left * zoom;
+                panY = (CanvasContainer.ActualHeight - CropFrame.Height * zoom) / 2 - top * zoom;
             }
             else
             {
                 zoom = CanvasContainer.ActualHeight / Math.Min(CropFrame.Height + margin * 2, Canvas.Height);
-                panY = -(top * zoom - (CanvasContainer.ActualHeight - CropFrame.Height * zoom) / 2);
-                panX = -(left * zoom - (CanvasContainer.ActualWidth - CropFrame.Width * zoom) / 2);
+                panY = (CanvasContainer.ActualHeight - CropFrame.Height * zoom) / 2 - top * zoom;
+                panX = (CanvasContainer.ActualWidth - CropFrame.Width * zoom) / 2 - left * zoom;
             }
             AnimateTransform(panX, panY, zoom);
         }
